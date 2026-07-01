@@ -16,5 +16,6 @@ logs
 test-dir/
 *.pdf
 *.txt
+src/test.ts
 
 /generated/prisma

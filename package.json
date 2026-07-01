@@ -2,9 +2,12 @@
   "name": "swiftsell-backend",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "index.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "nodemon",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "test:ts": "ts-node --files -r tsconfig-paths/register"
   },
   "repository": {
     "type": "git",

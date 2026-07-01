@@ -3,32 +3,13 @@
     "target": "ES2022",
     "lib": ["ES2022"],
 
-    "module": "CommonJS",
-    "moduleResolution": "Node",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
 
     "rootDir": "./src",
     "outDir": "./dist",
 
     "strict": true,
-    "noImplicitReturns": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true,
-    "forceConsistentCasingInFileNames": true,
-
-    "baseUrl": "./src",
-    "paths": {
-      "@/*": ["*"],
-      "@config/*": ["config/*"],
-      "@modules/*": ["modules/*"],
-      "@middleware/*": ["middleware/*"],
-      "@utils/*": ["utils/*"],
-      "@shared/*": ["shared/*"],
-      "@types/*": ["types/*"],
-      "@interfaces/*": ["interfaces/*"],
-      "@validators/*": ["validators/*"],
-      "@jobs/*": ["jobs/*"]
-    },
 
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
@@ -36,22 +17,26 @@
 
     "skipLibCheck": true,
 
-    "types": ["node"],
-
     "sourceMap": true,
 
-    "declaration": false,
-    "removeComments": false
+    "baseUrl": "./src",
+
+    "paths": {
+      "@config/*": ["config/*"],
+      "@modules/*": ["modules/*"],
+      "@middleware/*": ["middleware/*"],
+      "@utils/*": ["utils/*"]
+    },
+
+    "ignoreDeprecations": "6.0"
   },
 
   "include": [
-    "src/**/*.ts",
-    "prisma/**/*.ts"
+    "src"
   ],
 
   "exclude": [
     "node_modules",
-    "dist",
-    "prisma/migrations"
+    "dist"
   ]
 }
