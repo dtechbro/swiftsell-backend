@@ -7,11 +7,13 @@ const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]),
 
   PORT: z.string(),
-  
+
   DATABASE_URL: z.string(),
 
   JWT_SECRET: z.string(),
   JWT_EXPIRES_IN: z.string(),
+  JWT_REFRESH_SECRET: z.string(),
+  JWT_REFRESH_EXPIRES_IN: z.string(),
 
   TELEGRAM_BOT_TOKEN: z.string(),
   TELEGRAM_BOT_USERNAME: z.string(),

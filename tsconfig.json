@@ -24,7 +24,10 @@
       "@middleware/*": ["middleware/*"],
       "@utils/*": ["utils/*"],
       "@shared/*": ["shared/*"],
-      "@types/*": ["types/*"]
+      "@types/*": ["types/*"],
+      "@interfaces/*": ["interfaces/*"],
+      "@validators/*": ["validators/*"],
+      "@jobs/*": ["jobs/*"]
     },
 
     "esModuleInterop": true,

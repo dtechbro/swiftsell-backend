@@ -14,5 +14,7 @@ logs
 
 # test dir
 test-dir/
+*.pdf
+*.txt
 
 /generated/prisma

@@ -4,7 +4,7 @@
 // Get a free hosted Postgres database in seconds: `npx create-db`
 
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../generated/prisma"
 }
 
@@ -15,6 +15,7 @@ datasource db {
 enum Role {
   ADMIN
   VENDOR
+  CUSTOMER
 }
 
 enum VendorStatus {
@@ -37,6 +38,7 @@ model User {
   role              Role
 
   telegramId        String?  @unique
+  telegramChatId    String?
   telegramUsername  String?
 
   isEmailVerified   Boolean  @default(false)
@@ -53,16 +55,14 @@ model User {
 
 model Vendor {
   id                  String         @id @default(cuid())
-
   userId              String         @unique
 
   businessName        String
   businessEmail       String?
-
   businessPhone       String
 
   status              VendorStatus   @default(PENDING)
-
+  maxStores           Int            @default(3)
   isOnboarded         Boolean        @default(false)
 
   approvedById        String?
