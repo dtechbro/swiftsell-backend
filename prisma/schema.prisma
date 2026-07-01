@@ -11,3 +11,99 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+enum Role {
+  ADMIN
+  VENDOR
+}
+
+enum VendorStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+model User {
+  id                String   @id @default(cuid())
+
+  email             String   @unique
+  phone             String?  @unique
+  password          String
+
+  firstName         String
+  lastName          String
+
+  role              Role
+
+  telegramId        String?  @unique
+  telegramUsername  String?
+
+  isEmailVerified   Boolean  @default(false)
+  isPhoneVerified   Boolean  @default(false)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  deletedAt         DateTime?
+
+  vendor            Vendor?
+
+  @@map("users")
+}
+
+model Vendor {
+  id                  String         @id @default(cuid())
+
+  userId              String         @unique
+
+  businessName        String
+  businessEmail       String?
+
+  businessPhone       String
+
+  status              VendorStatus   @default(PENDING)
+
+  isOnboarded         Boolean        @default(false)
+
+  approvedById        String?
+  approvedAt          DateTime?
+
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  deletedAt           DateTime?
+
+  user                User           @relation(fields: [userId], references: [id])
+
+  stores              Store[]
+
+  @@map("vendors")
+}
+
+model Store {
+  id                  String      @id @default(cuid())
+
+  vendorId            String
+
+  name                String
+  slug                String      @unique
+
+  description         String?
+
+  logo                String?
+  banner              String?
+
+  phone               String?
+  email               String?
+
+  address             String?
+
+  isActive            Boolean     @default(false)
+
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  deletedAt           DateTime?
+
+  vendor              Vendor      @relation(fields: [vendorId], references: [id])
+
+  @@map("stores")
+}
