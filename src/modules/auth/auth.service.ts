@@ -6,7 +6,9 @@ import {
   AdminRegisterInput,
   VendorLoginInput,
   VendorRegisterInput,
+  TelegramAuthInput,
 } from "./auth.validation";
+import { verifyTelegramInitData } from "@modules/telegram/telegram.service";
 
 export const registerVendor = async (input: VendorRegisterInput) => {
   const existingUser = await prisma.user.findFirst({
@@ -148,6 +150,69 @@ export const loginAdmin = async (input: AdminLoginInput) => {
 
   if (!passwordMatches) {
     throw new Error("Invalid admin credentials.");
+  }
+
+  const accessToken = generateAccessToken({
+    userId: user.id,
+    role: user.role,
+  });
+
+  const { password, ...safeUser } = user;
+
+  return {
+    user: safeUser,
+    accessToken,
+  };
+};
+
+export const linkTelegramAccount = async (
+  userId: string,
+  input: TelegramAuthInput
+) => {
+  const telegramData = verifyTelegramInitData(input.initData);
+  const telegramUser = telegramData.user;
+
+  const existingLinkedUser = await prisma.user.findUnique({
+    where: {
+      telegramId: String(telegramUser.id),
+    },
+  });
+
+  if (existingLinkedUser && existingLinkedUser.id !== userId) {
+    throw new Error("This Telegram account is already linked to another user.");
+  }
+
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      telegramId: String(telegramUser.id),
+      telegramChatId: String(telegramUser.id),
+      telegramUsername: telegramUser.username,
+    },
+  });
+
+  const { password, ...safeUser } = user;
+
+  return {
+    user: safeUser,
+  };
+};
+
+export const loginWithTelegram = async (input: TelegramAuthInput) => {
+  const telegramData = verifyTelegramInitData(input.initData);
+  const telegramUser = telegramData.user;
+
+  const user = await prisma.user.findUnique({
+    where: {
+      telegramId: String(telegramUser.id),
+    },
+    include: {
+      vendor: true,
+    },
+  });
+
+  if (!user) {
+    throw new Error("Telegram account is not linked to any user.");
   }
 
   const accessToken = generateAccessToken({

@@ -42,8 +42,14 @@ export const adminLoginSchema = z.object({
   password: z.string().min(1),
 });
 
+export const telegramAuthSchema = z.object({
+  initData: z.string().min(1),
+});
+
 export type VendorRegisterInput = z.infer<typeof vendorRegisterSchema>;
 export type VendorLoginInput = z.infer<typeof vendorLoginSchema>;
 
 export type AdminRegisterInput = z.infer<typeof adminRegisterSchema>;
 export type AdminLoginInput = z.infer<typeof adminLoginSchema>;
+
+export type TelegramAuthInput = z.infer<typeof telegramAuthSchema>;
