@@ -57,8 +57,8 @@ model Vendor {
   userId              String         @unique
 
   businessName        String
-  businessEmail       String?
-  businessPhone       String
+  businessEmail       String?        @unique
+  businessPhone       String         @unique
 
   status              VendorStatus   @default(PENDING)
   maxStores           Int            @default(3)
