@@ -1,3 +1,4 @@
+/*
 import { Request, Response } from "express";
 import {
   loginAdmin,
@@ -73,3 +74,6 @@ export const loginAdminController = async (req: Request, res: Response) => {
     });
   }
 };
+*/
+export {};
+

@@ -1,3 +1,4 @@
+/*
 import bcrypt from "bcrypt";
 
 export const hashPassword = async (
@@ -14,3 +15,11 @@ export const comparePassword = async (
 ): Promise<boolean> => {
   return await bcrypt.compare(password, hash);
 }
+*/
+export const hashPassword = async (password: string): Promise<string> => {
+  return "";
+};
+export const comparePassword = async (password: string, hash: string): Promise<boolean> => {
+  return false;
+};
+

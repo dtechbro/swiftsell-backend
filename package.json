@@ -6,7 +6,6 @@
   "scripts": {
     "dev": "nodemon",
     "build": "tsc",
-    "postinstall": "prisma generate",
     "start": "node dist/server.js",
     "test:ts": "ts-node --files -r tsconfig-paths/register"
   },

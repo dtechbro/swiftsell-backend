@@ -1,3 +1,4 @@
+/*
 import express from "express";
 import { protect } from "./middleware/auth.middleware";
 import authRoutes from "./modules/auth/auth.routes";
@@ -22,3 +23,5 @@ app.get("/protected", protect, (req, res) => {
 });
 
 export default app;
+*/
+

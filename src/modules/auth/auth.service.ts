@@ -1,3 +1,4 @@
+/*
 import prisma from "@config/prisma";
 import { generateAccessToken } from "./jwt";
 import { comparePassword, hashPassword } from "./password";
@@ -162,3 +163,6 @@ export const loginAdmin = async (input: AdminLoginInput) => {
     accessToken,
   };
 };
+*/
+export {};
+

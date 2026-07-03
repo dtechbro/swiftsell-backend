@@ -10,6 +10,8 @@ logs
 
 *.log
 
+npm_install_error.txt
+
 /generated/prisma
 
 # test dir

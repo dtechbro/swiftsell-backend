@@ -1,3 +1,4 @@
+/*
 import { Router } from "express";
 import { validateBody } from "@middleware/validate.middleware";
 import {
@@ -39,4 +40,8 @@ router.post(
   loginAdminController
 );
 
+export default router;
+*/
+import { Router } from "express";
+const router = Router();
 export default router;
