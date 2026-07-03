@@ -17,18 +17,7 @@
 
     "skipLibCheck": true,
 
-    "sourceMap": true,
-
-    "baseUrl": "./src",
-
-    "paths": {
-      "@config/*": ["config/*"],
-      "@modules/*": ["modules/*"],
-      "@middleware/*": ["middleware/*"],
-      "@utils/*": ["utils/*"]
-    },
-
-    // "ignoreDeprecations": "6.0"
+    "sourceMap": true
   },
 
   "include": [
