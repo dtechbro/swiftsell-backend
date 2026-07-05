@@ -1,5 +1,7 @@
 import { pool } from "./client";
 import { Vendor, OnboardingState } from "../types";
+import { ParsedProductRow } from "../services/catalogImport";
+import { BuyerSessionState } from "../types";
 
 export async function createVendor(
   ownerTelegramId: number,
@@ -45,6 +47,74 @@ export async function markVendorActive(vendorId: string): Promise<void> {
 export async function getVendorById(vendorId: string): Promise<Vendor | null> {
   const { rows } = await pool.query<Vendor>(
     `SELECT * FROM vendors WHERE id = $1`,
+    [vendorId],
+  );
+  return rows[0] ?? null;
+}
+
+export async function bulkInsertProducts(
+  vendorId: string,
+  products: ParsedProductRow[],
+): Promise<number> {
+  if (products.length === 0) return 0;
+
+  const values: string[] = [];
+  const params: any[] = [];
+  let idx = 1;
+
+  for (const p of products) {
+    values.push(
+      `($${idx++}, $${idx++}, $${idx++}, $${idx++}, $${idx++}, $${idx++})`,
+    );
+    params.push(
+      vendorId,
+      p.name,
+      p.description,
+      p.price,
+      p.stock_qty,
+      p.image_url,
+    );
+  }
+
+  await pool.query(
+    `INSERT INTO products (vendor_id, name, description, price, stock_qty, image_url)
+     VALUES ${values.join(", ")}`,
+    params,
+  );
+
+  return products.length;
+}
+
+export async function getBuyerSession(
+  telegramUserId: number,
+  vendorId: string,
+): Promise<BuyerSessionState | null> {
+  const { rows } = await pool.query(
+    `SELECT state FROM conversation_sessions WHERE telegram_user_id = $1 AND bot_context = $2`,
+    [telegramUserId, vendorId],
+  );
+  return rows[0]?.state ?? null;
+}
+
+export async function setBuyerSession(
+  telegramUserId: number,
+  vendorId: string,
+  state: BuyerSessionState,
+): Promise<void> {
+  await pool.query(
+    `INSERT INTO conversation_sessions (telegram_user_id, bot_context, state, updated_at)
+     VALUES ($1, $2, $3, now())
+     ON CONFLICT (telegram_user_id, bot_context)
+     DO UPDATE SET state = $3, updated_at = now()`,
+    [telegramUserId, vendorId, JSON.stringify(state)],
+  );
+}
+
+export async function getVendorByIdActive(
+  vendorId: string,
+): Promise<Vendor | null> {
+  const { rows } = await pool.query<Vendor>(
+    `SELECT * FROM vendors WHERE id = $1 AND status = 'active'`,
     [vendorId],
   );
   return rows[0] ?? null;

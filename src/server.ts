@@ -1,15 +1,10 @@
-// import app from "./app";
-// import { env } from "./config/env";
-
-// app.listen(Number(env.PORT), () => {
-//   console.log(`Server running on port ${env.PORT}`);
-// });
-
 import express from "express";
 import dotenv from "dotenv";
 dotenv.config();
 
 import { onboardingBot } from "./bot/onboarding.bot";
+import { getVendorByIdActive } from "./db/queries";
+import { handleVendorUpdate } from "./bot/vendorBot";
 
 const app = express();
 app.use(express.json());
@@ -28,11 +23,23 @@ if (isProd) {
 }
 
 // Vendor webhooks (built out fully in the buyer-flow step)
+
 app.post("/webhook/vendor/:vendorId", async (req, res) => {
   const { vendorId } = req.params;
-  console.log(`Received update for vendor ${vendorId}`, req.body);
-  // TODO: dispatch to vendor bot handler
+
+  // Acknowledge Telegram immediately — don't make it wait on our processing
   res.sendStatus(200);
+
+  try {
+    const vendor = await getVendorByIdActive(vendorId);
+    if (!vendor) {
+      console.warn(`Webhook for unknown/inactive vendor: ${vendorId}`);
+      return;
+    }
+    await handleVendorUpdate(vendor, req.body);
+  } catch (err) {
+    console.error(`Error handling update for vendor ${vendorId}:`, err);
+  }
 });
 
 const PORT = process.env.PORT || 3000;

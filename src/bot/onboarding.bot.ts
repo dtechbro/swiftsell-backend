@@ -7,8 +7,12 @@ import {
   getSessionState,
   setSessionState,
   markVendorActive,
+  bulkInsertProducts,
+  getVendorById,
 } from "../db/queries";
 import { OnboardingState } from "../types";
+import { generateProductTemplate } from "services/csvTemplate";
+import { parseProductCsv } from "services/catalogImport";
 
 const BOT_CONTEXT = "onboarding";
 
@@ -89,17 +93,17 @@ onboardingBot.on("text", async (ctx: Context) => {
       break;
     }
 
-    case "AWAITING_SHEET_URL": {
-      if (!state.vendorId) return;
-      // Full parsing comes in the catalog-import step — for now, just accept and mark done
-      await markVendorActive(state.vendorId);
-      await setSessionState(ctx.from.id, BOT_CONTEXT, {
-        step: "DONE",
-        vendorId: state.vendorId,
-      });
-      await ctx.reply("You're live! We'll wire up your product catalog next.");
-      break;
-    }
+    // case "AWAITING_CATALOG": {
+    //   if (!state.vendorId) return;
+    //   // Full parsing comes in the catalog-import step — for now, just accept and mark done
+    //   await markVendorActive(state.vendorId);
+    //   await setSessionState(ctx.from.id, BOT_CONTEXT, {
+    //     step: "DONE",
+    //     vendorId: state.vendorId,
+    //   });
+    //   await ctx.reply("You're live! We'll wire up your product catalog next.");
+    //   break;
+    // }
 
     case "DONE":
       await ctx.reply(
@@ -109,26 +113,129 @@ onboardingBot.on("text", async (ctx: Context) => {
   }
 });
 
-onboardingBot.on("contact", async (ctx: Context) => {
-  if (
-    !ctx.from ||
-    !ctx.message ||
-    !("contact" in ctx.message) ||
-    !ctx.message.contact
-  )
-    return;
+// onboardingBot.on("contact", async (ctx: Context) => {
+//   if (
+//     !ctx.from ||
+//     !ctx.message ||
+//     !("contact" in ctx.message) ||
+//     !ctx.message.contact
+//   )
+//     return;
+//   const state = await getSessionState(ctx.from.id, BOT_CONTEXT);
+//   if (!state || state.step !== "AWAITING_PHONE" || !state.vendorId) return;
+
+//   await saveVendorPhone(state.vendorId, ctx.message.contact.phone_number);
+//   const next: OnboardingState = {
+//     step: "AWAITING_CATALOG",
+//     vendorId: state.vendorId,
+//   };
+//   await setSessionState(ctx.from.id, BOT_CONTEXT, next);
+
+//   await ctx.reply(
+//     "Got it. Next: paste the link to your product sheet (we'll wire this up shortly).",
+//     Markup.removeKeyboard(),
+//   );
+// });
+
+onboardingBot.on("contact", async (ctx) => {
   const state = await getSessionState(ctx.from.id, BOT_CONTEXT);
   if (!state || state.step !== "AWAITING_PHONE" || !state.vendorId) return;
 
   await saveVendorPhone(state.vendorId, ctx.message.contact.phone_number);
-  const next: OnboardingState = {
-    step: "AWAITING_SHEET_URL",
+  await setSessionState(ctx.from.id, BOT_CONTEXT, {
+    step: "AWAITING_CATALOG",
     vendorId: state.vendorId,
-  };
-  await setSessionState(ctx.from.id, BOT_CONTEXT, next);
+  });
 
+  // send the template file
+  const templateCsv = generateProductTemplate();
+  await ctx.replyWithDocument(
+    { source: Buffer.from(templateCsv), filename: "product_template.csv" },
+    {
+      caption:
+        "Fill this in with your products, then send it back here as a file.",
+    },
+  );
   await ctx.reply(
-    "Got it. Next: paste the link to your product sheet (we'll wire this up shortly).",
+    "Required: name, price. Everything else is optional. Reply here once you've sent it.",
     Markup.removeKeyboard(),
+  );
+});
+
+onboardingBot.on("document", async (ctx) => {
+  const state = await getSessionState(ctx.from.id, BOT_CONTEXT);
+  if (!state || !state.vendorId) return;
+  if (state.step !== "AWAITING_CATALOG" && state.step !== "DONE") return;
+
+  const doc = ctx.message.document;
+  if (!doc.file_name?.endsWith(".csv")) {
+    await ctx.reply("Please send a .csv file.");
+    return;
+  }
+
+  await ctx.reply("Got it, processing...");
+
+  try {
+    const fileLink = await ctx.telegram.getFileLink(doc.file_id);
+    const res = await fetch(fileLink.toString());
+    const csvText = await res.text();
+
+    const { valid, errors } = parseProductCsv(csvText);
+    const insertedCount = await bulkInsertProducts(state.vendorId, valid);
+
+    let message = `✅ ${insertedCount} product${insertedCount === 1 ? "" : "s"} added.`;
+    if (errors.length > 0) {
+      const errorLines = errors
+        .slice(0, 10)
+        .map((e) => `Row ${e.row}: ${e.reason}`)
+        .join("\n");
+      message += `\n\n⚠️ ${errors.length} row${errors.length === 1 ? "" : "s"} skipped:\n${errorLines}`;
+      if (errors.length > 10) message += `\n...and ${errors.length - 10} more`;
+    }
+
+    // Auto-activate on first successful batch
+    if (state.step === "AWAITING_CATALOG" && insertedCount > 0) {
+      await markVendorActive(state.vendorId);
+      await setSessionState(ctx.from.id, BOT_CONTEXT, {
+        step: "DONE",
+        vendorId: state.vendorId,
+      });
+      const vendor = await getVendorById(state.vendorId);
+      message += `\n\n🎉 Your store is live! Message @${vendor?.telegram_bot_username} to try it as a buyer would.`;
+      message += `\nSend /addproducts anytime to upload more.`;
+    } else if (state.step === "DONE") {
+      message += `\n\nAdded to your live catalog.`;
+    } else if (insertedCount === 0) {
+      message += `\n\nNo valid products found — fix the errors above and resend the file.`;
+    }
+
+    await ctx.reply(message);
+  } catch (err) {
+    console.error("CSV import failed:", err);
+    await ctx.reply(
+      "Something went wrong reading that file. Make sure it's a valid CSV and try again.",
+    );
+  }
+});
+
+// Re-open the upload state on demand
+onboardingBot.command("addproducts", async (ctx) => {
+  const state = await getSessionState(ctx.from.id, BOT_CONTEXT);
+  if (!state || !state.vendorId) {
+    await ctx.reply("You haven't set up a store yet. Send /start to begin.");
+    return;
+  }
+
+  await setSessionState(ctx.from.id, BOT_CONTEXT, {
+    step: "AWAITING_CATALOG",
+    vendorId: state.vendorId,
+  });
+  const templateCsv = generateProductTemplate();
+  await ctx.replyWithDocument(
+    { source: Buffer.from(templateCsv), filename: "product_template.csv" },
+    {
+      caption:
+        "Send products as a filled CSV — reuse this template or your own file with the same columns.",
+    },
   );
 });

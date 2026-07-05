@@ -14,7 +14,8 @@ export type OnboardingStep =
   | "AWAITING_BUSINESS_NAME"
   | "AWAITING_BOT_TOKEN"
   | "AWAITING_PHONE"
-  | "AWAITING_SHEET_URL"
+  // | "AWAITING_SHEET_URL"
+  | "AWAITING_CATALOG"
   | "DONE";
 
 export interface OnboardingState {
@@ -27,4 +28,14 @@ export interface TelegramBotInfo {
   is_bot: boolean;
   username: string;
   first_name: string;
+}
+
+export type BuyerStep = "BROWSING" | "AWAITING_CHECKOUT_INFO";
+
+export interface BuyerSessionState {
+  step: BuyerStep;
+  buyerId: string;
+  cartId?: string;
+  // last search results shown, so "add the first one" or a button tap can resolve to a product
+  lastShownProductIds?: string[];
 }
