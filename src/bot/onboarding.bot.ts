@@ -11,8 +11,8 @@ import {
   getVendorById,
 } from "../db/queries";
 import { OnboardingState } from "../types";
-import { generateProductTemplate } from "services/csvTemplate";
-import { parseProductCsv } from "services/catalogImport";
+import { generateProductTemplate } from "../services/csvTemplate";
+import { parseProductCsv } from "../services/catalogImport";
 
 const BOT_CONTEXT = "onboarding";
 
