@@ -30,7 +30,7 @@ onboardingBot.start(async (ctx: Context) => {
   if (existing.rows[0] && existing.rows[0].status === "active") {
     await ctx.reply(
       "You already have a store set up. Send /addproducts to add more products, " +
-      "or contact support if you need to reset your setup."
+        "or contact support if you need to reset your setup.",
     );
     return;
   }

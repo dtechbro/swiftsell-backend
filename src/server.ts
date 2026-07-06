@@ -6,8 +6,8 @@ import { onboardingBot } from "./bot/onboarding.bot";
 import { getVendorByIdActive } from "./db/queries";
 import { handleVendorUpdate } from "./bot/vendorBot";
 import crypto from "crypto";
-import { pool } from "./db/client";
 import { sendMessage } from "./services/vendorTelegramApi";
+import { pool } from "db/client";
 
 const app = express();
 
