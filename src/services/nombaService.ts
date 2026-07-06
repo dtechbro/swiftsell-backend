@@ -55,7 +55,11 @@ async function getAccessToken(creds: VendorNombaCreds): Promise<string> {
     }),
   });
 
-  if (!res.ok) throw new Error(`Nomba auth failed: ${res.status}`);
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("Nomba auth failed:", res.status, errorText);
+    throw new Error(`Nomba auth failed: ${res.status} - ${errorText}`);
+  }
   const data = (await res.json()) as NombaAuthResponse;
   tokenCache.set(creds.accountId, {
     token: data.access_token,

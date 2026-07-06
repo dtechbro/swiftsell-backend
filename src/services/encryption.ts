@@ -1,7 +1,12 @@
 import crypto from "crypto";
 
 const ALGORITHM = "aes-256-gcm";
-const KEY = Buffer.from(process.env.CREDENTIAL_ENCRYPTION_KEY!, "hex"); // 32 bytes
+
+if (!process.env.CREDENTIAL_ENCRYPTION_KEY) {
+  throw new Error("CREDENTIAL_ENCRYPTION_KEY environment variable is not set");
+}
+
+const KEY = Buffer.from(process.env.CREDENTIAL_ENCRYPTION_KEY, "hex"); // 32 bytes
 
 export function encrypt(plaintext: string): string {
   const iv = crypto.randomBytes(12);
