@@ -15,7 +15,12 @@ import {
 } from "../services/cartService";
 import { getBuyerSession, setBuyerSession } from "../db/queries";
 import { parseCallbackData } from "../services/callbackData";
-import { BuyerSessionState } from "../types";
+// import { BuyerSessionState } from "../types";
+import { createCheckoutOrder } from "../services/nombaService";
+import { pool } from "../db/client";
+import { randomUUID } from "crypto";
+import { getBuyerEmail, saveBuyerEmail } from "../db/queries";
+import { looksLikeEmail } from "../services/validators";
 
 // Telegram update shape — minimal typing for what we use
 interface TelegramUpdate {
@@ -57,6 +62,27 @@ async function handleMessage(
 
   const buyerId = await getOrCreateBuyer(telegramUserId, message.from.username);
   const cartId = await getOrCreateActiveCart(vendor.id, buyerId);
+  const session = await getBuyerSession(telegramUserId, vendor.id);
+
+  // handle mid-checkout email collection
+  if (session?.step === "AWAITING_CHECKOUT_EMAIL") {
+    if (!looksLikeEmail(text)) {
+      await sendMessage(
+        token,
+        chatId,
+        "That doesn doesn't look like a valid email, try again",
+      );
+      return;
+    }
+    await saveBuyerEmail(buyerId, text);
+    await setBuyerSession(telegramUserId, vendor.id, {
+      step: "BROWSING",
+      buyerId,
+      cartId,
+    });
+    await runCheckout(token, chatId, vendor, buyerId, cartId, text);
+    return;
+  }
 
   if (text === "/start") {
     await setBuyerSession(telegramUserId, vendor.id, {
@@ -78,7 +104,14 @@ async function handleMessage(
   }
 
   if (/^checkout$/i.test(text)) {
-    await beginCheckout(token, chatId, cartId);
+    await handleCheckoutRequest(
+      token,
+      chatId,
+      telegramUserId,
+      vendor,
+      buyerId,
+      cartId,
+    );
     return;
   }
 
@@ -155,7 +188,14 @@ async function handleCallback(
     }
     case "checkout": {
       await answerCallbackQuery(token, callbackQuery.id);
-      await beginCheckout(token, chatId, cartId);
+      await handleCheckoutRequest(
+        token,
+        chatId,
+        telegramUserId,
+        vendor,
+        buyerId,
+        cartId,
+      );
       break;
     }
   }
@@ -229,9 +269,12 @@ async function showCart(
   await sendMessage(token, chatId, text, removeButtons);
 }
 
-async function beginCheckout(
+async function handleCheckoutRequest(
   token: string,
   chatId: number,
+  telegramUserId: number,
+  vendor: Vendor,
+  buyerId: string,
   cartId: string,
 ): Promise<void> {
   const items = await getCartItems(cartId);
@@ -243,10 +286,72 @@ async function beginCheckout(
     );
     return;
   }
-  // Nomba integration goes here next
+
+  const existingEmail = await getBuyerEmail(buyerId);
+  if (existingEmail) {
+    await runCheckout(token, chatId, vendor, buyerId, cartId, existingEmail);
+    return;
+  }
+
+  // no email on file — ask, and pause checkout until we get one
+  await setBuyerSession(telegramUserId, vendor.id, {
+    step: "AWAITING_CHECKOUT_EMAIL",
+    buyerId,
+    cartId,
+  });
   await sendMessage(
     token,
     chatId,
-    "Checkout coming next — this is where we'll generate your Nomba payment link.",
+    "What email should we send your receipt to?",
+  );
+}
+
+async function runCheckout(
+  token: string,
+  chatId: number,
+  vendor: Vendor,
+  buyerId: string,
+  cartId: string,
+  email: string,
+): Promise<void> {
+  const total = await getCartTotal(cartId);
+  const orderReference = randomUUID();
+
+  await pool.query(
+    `INSERT INTO orders (vendor_id, buyer_id, cart_id, order_reference, total_amount, buyer_telegram_id, vendor_telegram_id)
+     VALUES ($1, $2, $3, $4, $5,
+       (SELECT telegram_user_id FROM buyers WHERE id = $2),
+       $6)`,
+    [
+      vendor.id,
+      buyerId,
+      cartId,
+      orderReference,
+      total,
+      vendor.owner_telegram_id,
+    ],
+  );
+
+  const result = await createCheckoutOrder({
+    vendorId: vendor.id,
+    orderReference,
+    amount: total,
+    customerEmail: email,
+  });
+
+  if (!result) {
+    await sendMessage(
+      token,
+      chatId,
+      "Something went wrong starting checkout — please try again in a moment.",
+    );
+    return;
+  }
+
+  await sendMessage(
+    token,
+    chatId,
+    `Tap below to pay ₦${total.toLocaleString()}. I'll confirm here as soon as it's done.`,
+    [[{ text: "💳 Pay now", url: result.checkoutLink } as any]],
   );
 }

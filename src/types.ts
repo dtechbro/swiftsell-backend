@@ -30,7 +30,7 @@ export interface TelegramBotInfo {
   first_name: string;
 }
 
-export type BuyerStep = "BROWSING" | "AWAITING_CHECKOUT_INFO";
+export type BuyerStep = "BROWSING" | "AWAITING_CHECKOUT_EMAIL";
 
 export interface BuyerSessionState {
   step: BuyerStep;
@@ -38,4 +38,5 @@ export interface BuyerSessionState {
   cartId?: string;
   // last search results shown, so "add the first one" or a button tap can resolve to a product
   lastShownProductIds?: string[];
+  pendingCheckout?: boolean; // true while we're mid-way collecting email before generating the link
 }

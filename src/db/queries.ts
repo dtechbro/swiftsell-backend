@@ -110,6 +110,24 @@ export async function setBuyerSession(
   );
 }
 
+export async function getBuyerEmail(buyerId: string): Promise<string | null> {
+  const { rows } = await pool.query<{ email: string | null }>(
+    `SELECT email FROM buyers WHERE id = $1`,
+    [buyerId],
+  );
+  return rows[0]?.email ?? null;
+}
+
+export async function saveBuyerEmail(
+  buyerId: string,
+  email: string,
+): Promise<void> {
+  await pool.query(`UPDATE buyers SET email = $1 WHERE id = $2`, [
+    email,
+    buyerId,
+  ]);
+}
+
 export async function getVendorByIdActive(
   vendorId: string,
 ): Promise<Vendor | null> {
@@ -121,7 +139,6 @@ export async function getVendorByIdActive(
 }
 
 // --- conversation state (used for both onboarding + later buyer sessions) ---
-
 export async function getSessionState(
   telegramUserId: number,
   botContext: string,
