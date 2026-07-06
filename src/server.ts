@@ -8,27 +8,58 @@ import { handleVendorUpdate } from "./bot/vendorBot";
 import crypto from "crypto";
 import { pool } from "./db/client";
 import { sendMessage } from "./services/vendorTelegramApi";
-import { decrypt } from "./services/encryption";
 
 const app = express();
 
+function buildHashingPayload(event: any, timestamp: string): string {
+  const data = event?.data ?? {};
+  const merchant = data.merchant ?? {};
+  const transaction = data.transaction ?? {};
+
+  const eventType = event?.event_type ?? "";
+  const requestId = event?.requestId ?? "";
+  const userId = merchant.userId ?? "";
+  const walletId = merchant.walletId ?? "";
+  const transactionId = transaction.transactionId ?? "";
+  const transactionType = transaction.type ?? "";
+  const transactionTime = transaction.time ?? "";
+  let responseCode = transaction.responseCode ?? "";
+  if (responseCode === "null") responseCode = "";
+
+  return [
+    eventType,
+    requestId,
+    userId,
+    walletId,
+    transactionId,
+    transactionType,
+    transactionTime,
+    responseCode,
+    timestamp,
+  ].join(":");
+}
+
 function verifyNombaSignature(
-  rawBody: Buffer,
+  event: any,
+  timestamp: string,
   signatureHeader: string | undefined,
   secret: string,
 ): boolean {
-  if (!signatureHeader) return false;
+  if (!signatureHeader || !timestamp) return false;
+
+  const hashingPayload = buildHashingPayload(event, timestamp);
   const computed = crypto
     .createHmac("sha256", secret)
-    .update(rawBody)
-    .digest("hex");
+    .update(hashingPayload)
+    .digest("base64");
+
   try {
     return crypto.timingSafeEqual(
       Buffer.from(computed),
       Buffer.from(signatureHeader),
     );
   } catch {
-    return false; // length mismatch etc. — fail closed, never throw past this
+    return false;
   }
 }
 
@@ -36,9 +67,20 @@ app.post(
   "/webhook/nomba",
   express.raw({ type: "application/json" }),
   async (req, res) => {
-    const signature = req.headers["NombaHackathon2026"] as string | undefined; // CONFIRM real header name in sandbox test
+    const signature = req.headers["nomba-signature"] as string | undefined; // CONFIRM real header name in sandbox test
+    const timestamp = req.headers["nomba-timestamp"] as string | undefined;
+
+    let event: any;
+    try {
+      event = JSON.parse(req.body.toString());
+    } catch {
+      console.error("Nomba webhook: malformed JSON body");
+      return res.sendStatus(400);
+    }
+
     const valid = verifyNombaSignature(
-      req.body,
+      event,
+      timestamp ?? " ",
       signature,
       process.env.NOMBA_WEBHOOK_SECRET!,
     );
@@ -49,14 +91,6 @@ app.post(
     }
 
     res.sendStatus(200); // ack immediately, process after
-
-    let event: any;
-    try {
-      event = JSON.parse(req.body.toString());
-    } catch {
-      console.error("Nomba webhook: malformed JSON body");
-      return;
-    }
 
     if (event.event_type === "payment_success") {
       await handlePaymentSuccess(event.data).catch((err) =>
@@ -118,7 +152,7 @@ app.use(express.json());
 
 app.get("/health", (_req, res) => res.send("ok"));
 
-const isProd = process.env.NODE_ENV === "development";
+const isProd = process.env.NODE_ENV === "production";
 
 if (isProd) {
   // Production: onboarding bot runs on webhook too
@@ -150,7 +184,10 @@ app.post("/webhook/vendor/:vendorId", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
+});
 
 process.once("SIGINT", () => onboardingBot.stop("SIGINT"));
 process.once("SIGTERM", () => onboardingBot.stop("SIGTERM"));

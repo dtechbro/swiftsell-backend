@@ -13,6 +13,7 @@ import {
 import { OnboardingState } from "../types";
 import { generateProductTemplate } from "../services/csvTemplate";
 import { parseProductCsv } from "../services/catalogImport";
+import { pool } from "db/client";
 
 const BOT_CONTEXT = "onboarding";
 
@@ -20,6 +21,20 @@ export const onboardingBot = new Telegraf(process.env.ONBOARDING_BOT_TOKEN!);
 
 onboardingBot.start(async (ctx: Context) => {
   if (!ctx.from) return;
+
+  const existing = await pool.query(
+    `SELECT id, status FROM vendors WHERE owner_telegram_id = $1`,
+    [ctx.from.id],
+  );
+
+  if (existing.rows[0] && existing.rows[0].status === "active") {
+    await ctx.reply(
+      "You already have a store set up. Send /addproducts to add more products, " +
+      "or contact support if you need to reset your setup."
+    );
+    return;
+  }
+
   await setSessionState(ctx.from.id, BOT_CONTEXT, {
     step: "AWAITING_BUSINESS_NAME",
   });

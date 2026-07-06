@@ -7,6 +7,7 @@ interface VendorNombaCreds {
   clientId: string;
   clientSecret: string;
   accountId: string;
+  subAccountId: string;
 }
 
 interface NombaAuthResponse {
@@ -23,18 +24,23 @@ interface NombaCheckoutResponse {
 
 async function getVendorCreds(vendorId: string): Promise<VendorNombaCreds> {
   const { rows } = await pool.query(
-    `SELECT nomba_client_id, nomba_client_secret_encrypted, nomba_account_id
+    `SELECT nomba_client_id, nomba_client_secret_encrypted, nomba_account_id, nomba_sub_account_id
      FROM vendors WHERE id = $1`,
     [vendorId],
   );
   const row = rows[0];
   if (!row?.nomba_client_id)
     throw new Error(`Vendor ${vendorId} has no Nomba credentials configured`);
+  if (!row?.nomba_sub_account_id)
+    throw new Error(
+      `Vendor ${vendorId} has no Nomba sub-account ID configured`,
+    );
 
   return {
     clientId: row.nomba_client_id,
     clientSecret: decrypt(row.nomba_client_secret_encrypted),
     accountId: row.nomba_account_id,
+    subAccountId: row.nomba_sub_account_id,
   };
 }
 
@@ -91,6 +97,7 @@ export async function createCheckoutOrder(params: {
         currency: "NGN",
         callbackUrl: `${process.env.BASE_URL}/payment-complete`,
         customerEmail: params.customerEmail ?? "buyer@example.com",
+        accountId: creds.subAccountId,
       },
 
       // order req from documentation
