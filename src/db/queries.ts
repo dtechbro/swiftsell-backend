@@ -138,6 +138,127 @@ export async function getVendorByIdActive(
   return rows[0] ?? null;
 }
 
+export async function getVendorByOwnerTelegramId(
+  ownerTelegramId: number,
+): Promise<Vendor | null> {
+  const { rows } = await pool.query<Vendor>(
+    `SELECT * FROM vendors WHERE owner_telegram_id = $1 AND status = 'active'`,
+    [ownerTelegramId],
+  );
+  return rows[0] ?? null;
+}
+
+export interface VendorOrderItem {
+  name: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface VendorOrderDetails {
+  id: string;
+  orderReference: string;
+  status: string;
+  totalAmount: number;
+  buyerTelegramId: number;
+  buyerUsername: string | null;
+  buyerEmail: string | null;
+  paidAt: string | null;
+  createdAt: string | null;
+  items: VendorOrderItem[];
+}
+
+function mapOrderDetails(row: any): VendorOrderDetails {
+  return {
+    id: row.id,
+    orderReference: row.order_reference,
+    status: row.status,
+    totalAmount: Number(row.total_amount),
+    buyerTelegramId: Number(row.buyer_telegram_id),
+    buyerUsername: row.buyer_username,
+    buyerEmail: row.buyer_email,
+    paidAt: row.paid_at,
+    createdAt: row.created_at,
+    items: row.items ?? [],
+  };
+}
+
+export async function getRecentOrdersForVendor(
+  vendorId: string,
+  limit = 10,
+): Promise<VendorOrderDetails[]> {
+  const { rows } = await pool.query(
+    `SELECT
+       o.id,
+       o.order_reference,
+       o.status,
+       o.total_amount,
+       o.buyer_telegram_id,
+       o.created_at,
+       b.telegram_username AS buyer_username,
+       b.email AS buyer_email,
+       p.confirmed_at AS paid_at,
+       COALESCE(
+         json_agg(
+           json_build_object(
+             'name', pr.name,
+             'quantity', ci.quantity,
+             'unitPrice', ci.unit_price_snapshot
+           )
+         ) FILTER (WHERE ci.id IS NOT NULL),
+         '[]'::json
+       ) AS items
+     FROM orders o
+     JOIN buyers b ON b.id = o.buyer_id
+     LEFT JOIN payments p ON p.order_id = o.id
+     LEFT JOIN cart_items ci ON ci.cart_id = o.cart_id
+     LEFT JOIN products pr ON pr.id = ci.product_id
+     WHERE o.vendor_id = $1
+     GROUP BY o.id, b.telegram_username, b.email, p.confirmed_at
+     ORDER BY COALESCE(p.confirmed_at, o.created_at) DESC
+     LIMIT $2`,
+    [vendorId, limit],
+  );
+
+  return rows.map(mapOrderDetails);
+}
+
+export async function getOrderDetailsByReference(
+  orderReference: string,
+): Promise<VendorOrderDetails | null> {
+  const { rows } = await pool.query(
+    `SELECT
+       o.id,
+       o.order_reference,
+       o.status,
+       o.total_amount,
+       o.buyer_telegram_id,
+       o.created_at,
+       b.telegram_username AS buyer_username,
+       b.email AS buyer_email,
+       p.confirmed_at AS paid_at,
+       COALESCE(
+         json_agg(
+           json_build_object(
+             'name', pr.name,
+             'quantity', ci.quantity,
+             'unitPrice', ci.unit_price_snapshot
+           )
+         ) FILTER (WHERE ci.id IS NOT NULL),
+         '[]'::json
+       ) AS items
+     FROM orders o
+     JOIN buyers b ON b.id = o.buyer_id
+     LEFT JOIN payments p ON p.order_id = o.id
+     LEFT JOIN cart_items ci ON ci.cart_id = o.cart_id
+     LEFT JOIN products pr ON pr.id = ci.product_id
+     WHERE o.order_reference = $1
+     GROUP BY o.id, b.telegram_username, b.email, p.confirmed_at`,
+    [orderReference],
+  );
+
+  return rows[0] ? mapOrderDetails(rows[0]) : null;
+}
+
 // --- conversation state (used for both onboarding + later buyer sessions) ---
 export async function getSessionState(
   telegramUserId: number,

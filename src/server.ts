@@ -3,11 +3,12 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import { onboardingBot } from "./bot/onboarding.bot";
-import { getVendorByIdActive } from "./db/queries";
+import { getOrderDetailsByReference, getVendorByIdActive } from "./db/queries";
 import { handleVendorUpdate } from "./bot/vendorBot";
 import crypto from "crypto";
 import { sendMessage } from "./services/vendorTelegramApi";
 import { pool } from "./db/client";
+import { formatOrderNotification } from "./services/orderMessages";
 
 const app = express();
 
@@ -173,7 +174,7 @@ async function handlePaymentSuccess(data: any): Promise<void> {
 
   const { rows } = await pool.query(
     `UPDATE orders SET status = 'paid' WHERE order_reference = $1
-     RETURNING vendor_id, buyer_telegram_id, vendor_telegram_id, total_amount`,
+     RETURNING vendor_id, buyer_telegram_id, vendor_telegram_id, total_amount, cart_id`,
     [orderReference],
   );
   const order = rows[0];
@@ -203,6 +204,14 @@ async function handlePaymentSuccess(data: any): Promise<void> {
     order.vendor_telegram_id,
     `🎉 New order paid — ₦${Number(order.total_amount).toLocaleString()}. Check your Nomba dashboard for settlement details.`,
   );
+  const orderDetails = await getOrderDetailsByReference(orderReference);
+  if (orderDetails) {
+    await onboardingBot.telegram.sendMessage(
+      order.vendor_telegram_id,
+      formatOrderNotification(orderDetails),
+    );
+  }
+
   console.log(`Payment confirmed and Telegram notified: ${orderReference}`);
 }
 
@@ -235,6 +244,13 @@ async function handlePaymentFailure(data: any): Promise<void> {
     console.warn(`Vendor ${order.vendor_id} has no Telegram bot token`);
     return;
   }
+
+  await pool.query(`DELETE FROM cart_items WHERE cart_id = $1`, [
+    order.cart_id,
+  ]);
+  await pool.query(`UPDATE carts SET status = 'checked_out' WHERE id = $1`, [
+    order.cart_id,
+  ]);
 
   await sendMessage(
     vendorBotToken,

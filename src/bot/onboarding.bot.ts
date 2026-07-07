@@ -9,11 +9,14 @@ import {
   markVendorActive,
   bulkInsertProducts,
   getVendorById,
+  getRecentOrdersForVendor,
+  getVendorByOwnerTelegramId,
 } from "../db/queries";
 import { OnboardingState } from "../types";
 import { generateProductTemplate } from "../services/csvTemplate";
 import { parseProductCsv } from "../services/catalogImport";
 import { pool } from "../db/client";
+import { formatOrdersList } from "../services/orderMessages";
 
 const BOT_CONTEXT = "onboarding";
 
@@ -39,6 +42,21 @@ onboardingBot.start(async (ctx: Context) => {
     step: "AWAITING_BUSINESS_NAME",
   });
   await ctx.reply("Let's set up your store. What's your business name?");
+});
+
+onboardingBot.command("orders", async (ctx) => {
+  if (!ctx.from) return;
+
+  const vendor = await getVendorByOwnerTelegramId(ctx.from.id);
+  if (!vendor) {
+    await ctx.reply(
+      "I couldn't find an active store for you yet. Finish onboarding first, then /orders will show your paid orders.",
+    );
+    return;
+  }
+
+  const orders = await getRecentOrdersForVendor(vendor.id, 10);
+  await ctx.reply(formatOrdersList(orders));
 });
 
 onboardingBot.on("text", async (ctx: Context) => {
