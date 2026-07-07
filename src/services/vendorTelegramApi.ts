@@ -15,11 +15,15 @@ export async function sendMessage(
   if (buttons) {
     body.reply_markup = { inline_keyboard: buttons };
   }
-  await fetch(`${TG(token)}/sendMessage`, {
+  const res = await fetch(`${TG(token)}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+
+  if (!res.ok) {
+    console.error("Telegram sendMessage failed:", res.status, await res.text());
+  }
 }
 
 export async function answerCallbackQuery(
@@ -27,9 +31,17 @@ export async function answerCallbackQuery(
   callbackQueryId: string,
   text?: string,
 ): Promise<void> {
-  await fetch(`${TG(token)}/answerCallbackQuery`, {
+  const res = await fetch(`${TG(token)}/answerCallbackQuery`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ callback_query_id: callbackQueryId, text }),
   });
+
+  if (!res.ok) {
+    console.error(
+      "Telegram answerCallbackQuery failed:",
+      res.status,
+      await res.text(),
+    );
+  }
 }

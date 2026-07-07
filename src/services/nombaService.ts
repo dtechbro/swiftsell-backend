@@ -95,7 +95,7 @@ export async function createCheckoutOrder(params: {
         orderReference: params.orderReference,
         amount: params.amount.toFixed(2),
         currency: "NGN",
-        callbackUrl: `${process.env.BASE_URL}/payment-complete`,
+        callbackUrl: `${process.env.BASE_URL}/payment-complete?orderReference=${encodeURIComponent(params.orderReference)}`,
         customerEmail: params.customerEmail ?? "buyer@example.com",
         accountId: creds.subAccountId,
       },
