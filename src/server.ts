@@ -67,14 +67,32 @@ app.post(
   "/webhook/nomba",
   express.raw({ type: "application/json" }),
   async (req, res) => {
+    console.log("Nomba webhook endpoint hit");
+console.log("Content-Type:", req.headers["content-type"]);
+console.log("Body is Buffer:", Buffer.isBuffer(req.body));
+console.log("Body length:", req.body?.length);
+console.log("Raw body:", req.body?.toString());
+
     const signature = req.headers["nomba-signature"] as string | undefined; // CONFIRM real header name in sandbox test
     const timestamp = req.headers["nomba-timestamp"] as string | undefined;
 
     let event: any;
     try {
-      event = JSON.parse(req.body.toString());
-    } catch {
-      console.error("Nomba webhook: malformed JSON body");
+      // Handle both Buffer and string body
+      const bodyStr = Buffer.isBuffer(req.body)
+        ? req.body.toString()
+        : req.body;
+      console.log(
+        "Raw body type:",
+        typeof req.body,
+        "isBuffer:",
+        Buffer.isBuffer(req.body),
+      );
+      console.log("Raw body content:", bodyStr?.substring(0, 200));
+      event = JSON.parse(bodyStr);
+    } catch (err) {
+      console.error("Nomba webhook: malformed JSON body", err);
+      console.error("Body that failed to parse:", req.body);
       return res.sendStatus(400);
     }
 
@@ -154,6 +172,12 @@ async function handlePaymentSuccess(data: any): Promise<void> {
 app.use(express.json());
 
 app.get("/health", (_req, res) => res.send("ok"));
+
+// Test endpoint to verify webhook accessibility
+app.post("/webhook/test", express.json(), (req, res) => {
+  console.log("Test webhook received:", req.body);
+  res.json({ received: true, body: req.body });
+});
 
 const isProd = process.env.NODE_ENV === "production";
 
