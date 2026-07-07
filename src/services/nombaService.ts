@@ -1,7 +1,7 @@
 import { pool } from "../db/client";
 import { decrypt } from "./encryption";
 
-const NOMBA_BASE = "https://sandbox.nomba.com/v1"; // swap to api.nomba.com for live, confirm exact sandbox host in your docs/dashboard
+const NOMBA_BASE = "https://api.nomba.com/v1"; // swap to api.nomba.com for live, confirm exact sandbox host in your docs/dashboard
 
 interface VendorNombaCreds {
   clientId: string;
