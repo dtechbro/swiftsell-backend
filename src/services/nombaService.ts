@@ -11,8 +11,10 @@ interface VendorNombaCreds {
 }
 
 interface NombaAuthResponse {
-  access_token: string;
-  expires_in: number;
+  data?: {
+    access_token?: string;
+    expiresAt?: string;
+  };
 }
 
 interface NombaCheckoutResponse {
@@ -67,11 +69,21 @@ async function getAccessToken(creds: VendorNombaCreds): Promise<string> {
     throw new Error(`Nomba auth failed: ${res.status} - ${errorText}`);
   }
   const data = (await res.json()) as NombaAuthResponse;
+  const token = data.data?.access_token;
+  if (!token) {
+    console.error("Nomba auth response missing access token:", data);
+    throw new Error("Nomba auth response missing access token");
+  }
+
+  const expiresAt = data.data?.expiresAt
+    ? new Date(data.data.expiresAt).getTime()
+    : Date.now() + 50 * 60 * 1000;
+
   tokenCache.set(creds.accountId, {
-    token: data.access_token,
-    expiresAt: Date.now() + (data.expires_in - 60) * 1000,
+    token,
+    expiresAt: expiresAt - 60 * 1000,
   });
-  return data.access_token;
+  return token;
 }
 
 export async function createCheckoutOrder(params: {

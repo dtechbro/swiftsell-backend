@@ -7,6 +7,11 @@ if (!process.env.CREDENTIAL_ENCRYPTION_KEY) {
 }
 
 const KEY = Buffer.from(process.env.CREDENTIAL_ENCRYPTION_KEY, "hex"); // 32 bytes
+if (KEY.length !== 32) {
+  throw new Error(
+    "CREDENTIAL_ENCRYPTION_KEY must be a 64-character hex string",
+  );
+}
 
 export function encrypt(plaintext: string): string {
   const iv = crypto.randomBytes(12);
