@@ -78,6 +78,9 @@ app.post(
       return res.sendStatus(400);
     }
 
+    console.log("RAW NOMBA WEBHOOK:", JSON.stringify(event, null, 2));
+    console.log("HEADERS:", timestamp, signature);
+
     const valid = verifyNombaSignature(
       event,
       timestamp ?? " ",
