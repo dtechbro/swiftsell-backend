@@ -7,7 +7,7 @@ import { getVendorByIdActive } from "./db/queries";
 import { handleVendorUpdate } from "./bot/vendorBot";
 import crypto from "crypto";
 import { sendMessage } from "./services/vendorTelegramApi";
-import { pool } from "db/client";
+import { pool } from "./db/client";
 
 const app = express();
 

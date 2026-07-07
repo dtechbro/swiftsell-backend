@@ -13,7 +13,7 @@ import {
 import { OnboardingState } from "../types";
 import { generateProductTemplate } from "../services/csvTemplate";
 import { parseProductCsv } from "../services/catalogImport";
-import { pool } from "db/client";
+import { pool } from "../db/client";
 
 const BOT_CONTEXT = "onboarding";
 
